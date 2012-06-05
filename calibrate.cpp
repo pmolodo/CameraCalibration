@@ -53,8 +53,9 @@ int main(int argc, char* argv[])
 	CvSize capture_size = cvGetSize( image );
 	// If we need to create a gray-scale image from a color, this is where we
 	// will store it
-	IplImage *local_gray_storage = cvCreateImage( capture_size, 8, 1 );
-	IplImage *gray_image; // points at either image or local_gray_storage
+	IplImage *local_gray_image = cvCreateImage( capture_size, 8, 1 );
+	IplImage *local_color_image = cvCloneImage(image);
+	IplImage *gray_image; // points at either image or local_gray_image
 
 	printf("Size: %d x %d\n", capture_size.width, capture_size.height);
 
@@ -65,26 +66,24 @@ int main(int argc, char* argv[])
 		image = cvQueryFrame( capture );
 		// Skip every board_dt frames to allow user to move chessboard
 		if( frame++ % board_dt == 0 ){
-			// Find chessboard corners:
-			int found = cvFindChessboardCorners( image, board_sz, corners,
-				&corner_count, CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FILTER_QUADS );
-
-			// Get subpixel accuracy on those corners
 			if (image->nChannels > 1)
 			{
-				cvCvtColor( image, local_gray_storage, CV_BGR2GRAY );
-				gray_image = local_gray_storage;
+				cvCvtColor( image, local_gray_image, CV_BGR2GRAY );
+				gray_image = local_gray_image;
 			}
 			else gray_image = image;
-			cvFindCornerSubPix( gray_image, corners, corner_count, cvSize( 11, 11 ),
-				cvSize( -1, -1 ), cvTermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
 
-			// Draw it
-			cvDrawChessboardCorners( image, board_sz, corners, corner_count, found );
-			cvShowImage( "Calibration", image );
+			// Find chessboard corners:
+			int found = cvFindChessboardCorners( gray_image, board_sz, corners,
+				&corner_count, CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FILTER_QUADS );
 
-			// If we got a good board, add it to our data
-			if( corner_count == board_n ){
+			// If we got a good board...,
+			if ( corner_count == board_n ){
+				// ...get subpixel accuracy on those corners...
+				cvFindCornerSubPix( gray_image, corners, corner_count, cvSize( 11, 11 ),
+					cvSize( -1, -1 ), cvTermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
+
+				// ...and add it to our data
 				step = successes*board_n;
 				for( int i=step, j=0; j < board_n; ++i, ++j ){
 					CV_MAT_ELEM( *image_points, float, i, 0 ) = corners[j].x;
@@ -97,6 +96,17 @@ int main(int argc, char* argv[])
 				successes++;
 				printf("Found board! (%d of %d - %.2f%%)\n", successes, n_boards, float(successes)/n_boards * 100);
 			}
+
+			// Draw it
+			if ( corner_count > 0 )
+			{
+				// Docs say we shouldn't modify image returned by cvQueryFrame -
+				// so copy to local_color_image, and draw corners over that
+				cvCopy(image, local_color_image);
+				cvDrawChessboardCorners( local_color_image, board_sz, corners, corner_count, found );
+				cvShowImage( "Calibration", local_color_image );
+			}
+			else cvShowImage( "Calibration", image );
 		}
 
 		// Handle pause/unpause and ESC
@@ -110,6 +120,9 @@ int main(int argc, char* argv[])
 		if( c == 27 )
 			return 0;
 	} // End collection while loop
+
+	cvReleaseImage(&local_gray_image);
+	gray_image = 0;
 
 	// Allocate matrices according to how many chessboards found
 	CvMat* object_points2 = cvCreateMat( successes*board_n, 3, CV_32FC1 );
@@ -141,7 +154,8 @@ int main(int argc, char* argv[])
 
 	// Calibrate the camera
 	cvCalibrateCamera2( object_points2, image_points2, point_counts2, cvGetSize( image ),
-		intrinsic_matrix, distortion_coeffs, NULL, NULL, CV_CALIB_FIX_ASPECT_RATIO );
+		intrinsic_matrix, distortion_coeffs, NULL, NULL,
+		CV_CALIB_FIX_ASPECT_RATIO | CV_CALIB_ZERO_TANGENT_DIST);
 
 	// | alphaU   0    u0 |
 	// |    0   alphaV v0 |
