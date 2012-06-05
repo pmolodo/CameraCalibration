@@ -96,6 +96,8 @@ public:
 		image_size = cvGetSize(tempImage);
 		_image_points.reserve(desired_boards * n_corners);
 
+		printf("Image Size: %d x %d\n", image_size.width, image_size.height);
+
 		// Don't forgot the +1 for the null terminator
 		char intrinsicsFile[strlen("Intrinsics.2012-03-14.143050.xml") + 1];
 		char distortionFile[strlen("Distortion.2012-03-14.143050.xml") + 1];
@@ -137,15 +139,12 @@ public:
 		// Do NOT use StackImage for currentFrame, since docs for cvQueryFrame
 		// say not to release it's return
 		IplImage *currentFrame = cvQueryFrame( _capture );
-		CvSize capture_size = cvGetSize( currentFrame );
 
 		// If we need to create a gray-scale image from a color, this is where we
 		// will store it
-		StackImage local_gray_image(cvCreateImage( capture_size, 8, 1 ));
+		StackImage local_gray_image(cvCreateImage( image_size, 8, 1 ));
 		StackImage local_color_image(cvCloneImage(currentFrame));
 		IplImage *gray_image; // points at either currentFrame or local_gray_image
-
-		printf("Size: %d x %d\n", capture_size.width, capture_size.height);
 
 		// Capture Corner views loop until we've got desired_boards
 		// successful captures (all corners on the board are found)
