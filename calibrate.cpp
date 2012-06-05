@@ -24,12 +24,13 @@ int board_h;
 //int _tmain(int argc, _TCHAR* argv[])
 int main(int argc, char* argv[])
 {
-	board_w = 5; // Board width in squares
-	board_h = 8; // Board height
-	n_boards = 8; // Number of boards
+	// Width and height are # of "internal corners", NOT # of squares!
+	board_w = 10; // Board width in internal corners (# of squares - 1)
+	board_h = 13; // Board height in internal corners (# of squares - 1)
+	n_boards = 25; // Number of boards
 	int board_n = board_w * board_h;
 	CvSize board_sz = cvSize( board_w, board_h );
-	CvCapture* capture = cvCreateCameraCapture( 0 );
+	CvCapture* capture = cvCreateCameraCapture( 300 );
 	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, 640);
 	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, 480);
 
@@ -50,21 +51,31 @@ int main(int argc, char* argv[])
 
 	IplImage *image = cvQueryFrame( capture );
 	CvSize capture_size = cvGetSize( image );
-	IplImage *gray_image = cvCreateImage( capture_size, 8, 1 );
+	// If we need to create a gray-scale image from a color, this is where we
+	// will store it
+	IplImage *local_gray_storage = cvCreateImage( capture_size, 8, 1 );
+	IplImage *gray_image; // points at either image or local_gray_storage
+
 	printf("Size: %d x %d\n", capture_size.width, capture_size.height);
 
 	// Capture Corner views loop until we've got n_boards
 	// succesful captures (all corners on the board are found)
 
 	while( successes < n_boards ){
-		// Skp every board_dt frames to allow user to move chessboard
+		image = cvQueryFrame( capture );
+		// Skip every board_dt frames to allow user to move chessboard
 		if( frame++ % board_dt == 0 ){
 			// Find chessboard corners:
 			int found = cvFindChessboardCorners( image, board_sz, corners,
 				&corner_count, CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FILTER_QUADS );
 
 			// Get subpixel accuracy on those corners
-			cvCvtColor( image, gray_image, CV_BGR2GRAY );
+			if (image->nChannels > 1)
+			{
+				cvCvtColor( image, local_gray_storage, CV_BGR2GRAY );
+				gray_image = local_gray_storage;
+			}
+			else gray_image = image;
 			cvFindCornerSubPix( gray_image, corners, corner_count, cvSize( 11, 11 ),
 				cvSize( -1, -1 ), cvTermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
 
@@ -84,6 +95,7 @@ int main(int argc, char* argv[])
 				}
 				CV_MAT_ELEM( *point_counts, int, successes, 0 ) = board_n;
 				successes++;
+				printf("Found board! (%d of %d - %.2f%%)\n", successes, n_boards, float(successes)/n_boards * 100);
 			}
 		}
 
@@ -97,7 +109,6 @@ int main(int argc, char* argv[])
 		}
 		if( c == 27 )
 			return 0;
-		image = cvQueryFrame( capture ); // Get next image
 	} // End collection while loop
 
 	// Allocate matrices according to how many chessboards found
