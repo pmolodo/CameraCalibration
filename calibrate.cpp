@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include <stdio.h>
+#include <iostream>
 #include <time.h>
 #include <vector>
 
@@ -16,6 +17,27 @@
 #include "ml.h"
 #include "cxcore.h"
 #include "highgui.h"
+
+//////////////////////////////////////////////////
+// Constants
+//////////////////////////////////////////////////
+
+const int ESC_KEY = 27;
+
+const char* VIDEO_WINDOW = "Video Stream";
+const char* SNAPSHOT_WINDOW = "Snapshot";
+const char* UNDISTORT_WINDOW = "Undistort";
+
+//////////////////////////////////////////////////
+// Exceptions
+//////////////////////////////////////////////////
+
+class CaptureInitializationError : public runtime_error
+{
+public:
+	CaptureInitializationError(): runtime_error( "Unable to initialize capture device" )
+	{}
+};
 
 // IplImage pointer which is released when object is destroyed
 class StackImage
@@ -65,8 +87,6 @@ class CameraCalibrator
 {
 public:
 	// Size is measured in # of "internal corners", NOT # of squares!
-	const int desired_boards; // Number of boards
-	const int board_dt;
 	const CvSize board_size;
 	const int n_corners;
 	int captured_boards;
@@ -83,18 +103,20 @@ protected:
 
 public:
 	CameraCalibrator(const CvSize& board_size_):
-		desired_boards(25), board_dt(20), board_size(board_size_),
-		n_corners(board_size_.height * board_size_.width),
-		captured_boards(0), _intrinsic_matrix(cvCreateMat( 3, 3, CV_32FC1 )),
+		board_size(board_size_),
+		n_corners(board_size_.height * board_size_.width), captured_boards(0),
+		_intrinsic_matrix(cvCreateMat( 3, 3, CV_32FC1 )),
 		_distortion_coeffs(cvCreateMat( 5, 1, CV_32FC1 ))
 	{
 		_capture = cvCreateCameraCapture( 300 );
 		cvSetCaptureProperty(_capture, CV_CAP_PROP_FRAME_WIDTH, 640);
 		cvSetCaptureProperty(_capture, CV_CAP_PROP_FRAME_HEIGHT, 480);
-		assert( _capture );
+		if (not _capture) throw CaptureInitializationError();
+
 		IplImage* tempImage = cvQueryFrame(_capture);
 		image_size = cvGetSize(tempImage);
-		_image_points.reserve(desired_boards * n_corners);
+		// Reserve enough space for 5 boards
+		_image_points.reserve(5 * n_corners);
 
 		printf("Image Size: %d x %d\n", image_size.width, image_size.height);
 
@@ -130,29 +152,63 @@ public:
 		_image_points.clear();
 		captured_boards = 0;
 
-		cvNamedWindow( "Calibration" );
+		cvNamedWindow( VIDEO_WINDOW );
+		cvNamedWindow( SNAPSHOT_WINDOW );
 
 		std::vector<CvPoint2D32f> corners(n_corners);
 		int corner_count;
-		int step, frame = 0;
 
 		// Do NOT use StackImage for currentFrame, since docs for cvQueryFrame
 		// say not to release it's return
 		IplImage *currentFrame = cvQueryFrame( _capture );
 
+		bool graySource = currentFrame->nChannels == 1;
+
 		// If we need to create a gray-scale image from a color, this is where we
 		// will store it
 		StackImage local_gray_image(cvCreateImage( image_size, 8, 1 ));
-		StackImage local_color_image(cvCloneImage(currentFrame));
+		IplImage* local_color_temp;
+		if (graySource) local_color_temp = cvCreateImage( image_size, 8, 3 );
+		else local_color_temp = cvCloneImage(currentFrame);
+		StackImage local_color_image(local_color_temp);
 		IplImage *gray_image; // points at either currentFrame or local_gray_image
 
 		// Capture Corner views loop until we've got desired_boards
 		// successful captures (all corners on the board are found)
 
-		while( captured_boards < desired_boards ){
+		bool doCapture = true;
+
+		CvFont font;
+		double hScale=1.0;
+		double vScale=1.0;
+		int    lineWidth=1;
+		cvInitFont(&font,CV_FONT_HERSHEY_SIMPLEX|CV_FONT_ITALIC, hScale,vScale,0,lineWidth);
+
+		while( doCapture ){
 			currentFrame = cvQueryFrame( _capture );
-			// Skip every board_dt frames to allow user to move chessboard
-			if( frame++ % board_dt == 0 ){
+			// Display the image immediately in the VIDEO_WINDOW
+			cvShowImage( VIDEO_WINDOW, currentFrame );
+
+			// Check user input
+			int c = cvWaitKey( 10 );
+
+			// Handle 'p' for pause/unpause
+			if (c == 'p')
+			{
+				c = 0;
+				while( c != 'p' && c != ESC_KEY ){
+					c = cvWaitKey( 100 );
+				}
+			}
+
+			if (c == ESC_KEY)
+			{
+				// They pressed ESC - quit
+				doCapture = false;
+			}
+			else if (c == ' ')
+			{
+				// If the user pressed space, they want to do a capture
 				if (currentFrame->nChannels > 1)
 				{
 					cvCvtColor( currentFrame, local_gray_image(), CV_BGR2GRAY );
@@ -173,37 +229,46 @@ public:
 							cvTermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
 
 					// ...and add it to our data
-					int startI = captured_boards * n_corners;
 					for( int i=0; i < n_corners; ++i) {
 						_image_points.push_back(corners[i]);
 					}
 					captured_boards++;
-					printf("Found board! (%d of %d - %.2f%%)\n", captured_boards, desired_boards, float(captured_boards)/desired_boards * 100);
+					printf("Found board! (#%d)\n", captured_boards);
 				}
 
 				// Draw it
+				if (graySource)
+				{
+					cvCvtColor(currentFrame, local_color_image(), CV_GRAY2RGB);
+				}
+				else
+				{
+					cvCopy(currentFrame, local_color_image());
+				}
+
 				if ( corner_count > 0 )
 				{
 					// Docs say we shouldn't modify currentFrame returned by cvQueryFrame -
 					// so copy to local_color_image, and draw corners over that
-					cvCopy(currentFrame, local_color_image());
 					cvDrawChessboardCorners( local_color_image(), board_size,
 							&(corners[0]), corner_count, found );
-					cvShowImage( "Calibration", local_color_image() );
 				}
-				else cvShowImage( "Calibration", currentFrame );
+				if (corner_count == 0)
+				{
+					cvPutText (local_color_image(),"No chessboard found",
+							cvPoint(100,400), &font, cvScalar(255,255,0));
+				}
+				else if (corner_count < n_corners)
+				{
+					cvPutText (local_color_image(),"Incomplete chessboard",
+							cvPoint(100,400), &font, cvScalar(255,255,0));
+				}
+				cvShowImage( SNAPSHOT_WINDOW, local_color_image() );
 			}
 
-			// Handle pause/unpause and ESC
-			int c = cvWaitKey( 15 );
-			if( c == 'p' ){
-				c = 0;
-				while( c != 'p' && c != 27 ){
-					c = cvWaitKey( 250 );
-				}
-			}
-			if( c == 27 ) break;
 		} // End collection while loop
+
+		cvDestroyWindow(SNAPSHOT_WINDOW);
 
 		return captured_boards;
 	}
@@ -215,7 +280,6 @@ public:
 		StackMat image_points_mat(cvCreateMat( captured_boards*n_corners, 2, CV_32FC1 ));
 		StackMat point_counts_mat(cvCreateMat( captured_boards, 1, CV_32SC1 ));
 
-		int boardIndex;
 		// Transfer the points into the correct size matrices
 		for( int i = 0; i < captured_boards*n_corners; ++i ){
 			int boardIndex = i % n_corners;
@@ -306,8 +370,8 @@ public:
 			distortionFile = _distortionFile;
 		}
 		// Example of loading these matrices back in
-		CvMat *_intrinsic_matrix = (CvMat*)cvLoad( intrinsicsFile.c_str() );
-		CvMat *_distortion_coeffs = (CvMat*)cvLoad( distortionFile.c_str() );
+		_intrinsic_matrix = (CvMat*)cvLoad( intrinsicsFile.c_str() );
+		_distortion_coeffs = (CvMat*)cvLoad( distortionFile.c_str() );
 	}
 
 	void showDistortion()
@@ -322,24 +386,25 @@ public:
 		cvInitUndistortMap( _intrinsic_matrix, _distortion_coeffs, mapx(), mapy() );
 
 		// Run the camera to the screen, now showing the raw and undistorted image
-		cvNamedWindow( "Undistort" );
+		cvNamedWindow( VIDEO_WINDOW );
+		cvNamedWindow( UNDISTORT_WINDOW );
 
 		while( currentFrame ){
 			IplImage *t = cvCloneImage( currentFrame );
-			cvShowImage( "Calibration", currentFrame ); // Show raw image
+			cvShowImage( VIDEO_WINDOW, currentFrame ); // Show raw image
 			cvRemap( t, currentFrame, mapx(), mapy() ); // undistort image
 			cvReleaseImage( &t );
-			cvShowImage( "Undistort", currentFrame ); // Show corrected image
+			cvShowImage( UNDISTORT_WINDOW, currentFrame ); // Show corrected image
 
 			// Handle pause/unpause and esc
 			int c = cvWaitKey( 15 );
 			if( c == 'p' ){
 				c = 0;
-				while( c != 'p' && c != 27 ){
+				while( c != 'p' && c != ESC_KEY ){
 					c = cvWaitKey( 250 );
 				}
 			}
-			if( c == 27 )
+			if( c == ESC_KEY )
 				break;
 			currentFrame = cvQueryFrame( _capture );
 		}
@@ -363,7 +428,14 @@ public:
 //int _tmain(int argc, _TCHAR* argv[])
 int main(int argc, char* argv[])
 {
-	CameraCalibrator(cvSize(13,10)).calibrateAndShow();
+	try
+	{
+		CameraCalibrator(cvSize(13,10)).calibrateAndShow();
+	}
+	catch (CaptureInitializationError &err)
+	{
+		std::cerr << "Error: " << err.what() << std::endl;
+	}
 	return 0;
 }
 
