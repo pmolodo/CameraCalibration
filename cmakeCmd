@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import subprocess
+import argparse
+import pipes
+
+# Suggested usage:
+# create an overall dir for this project, say 'viewerQT'
+# clone the git project containing this file into that dir, calling it src, ie
+#     cd viewerQT
+#     git clone [path_to_this_git_project] src
+# make a dir under the top viewerQT dir called build/debug, and then make a
+# cmakeCmd file there that runs this:
+#     cd viewerQT
+#     mkdir -p build/debug
+#     cd build/debug
+#     echo '#!/bin/bash' > cmakeCmd
+#     echo '../../src/cmakeCmd --debug "$@"' >> cmakeCmd
+#     chmod +x cmakeCmd
+# Then, run this to both generate an eclipse project, and the makefiles:
+#     cd viewerQT/build/debug
+#     ./cmakeCmd
+#     ./cmakeCmd --eclipse
+
+THIS_PATH = os.path.normcase(os.path.normpath(os.path.realpath(os.path.abspath(sys.argv[0]))))
+THIS_DIR = os.path.dirname(THIS_PATH)
+PROJECT_SRC_DIR = THIS_DIR
+PROJECT_DIR = os.path.dirname(THIS_DIR)
+PROJECT_NAME = os.path.basename(PROJECT_DIR)
+
+def arg_parser():
+    parser = argparse.ArgumentParser(description='execute the cmake command for %s' % PROJECT_NAME,
+        epilog='If neither the release or debug flags are given, then the build '
+            'type will be set to debug if the path contains the string "debug" '
+            'anywhere in it, otherwise it will be set to release')
+    parser.add_argument('--release', help='Set the build type to release',
+        action='store_const', const='release', dest='buildType')
+    parser.add_argument('--debug', help='Set the build type to debug',
+        action='store_const', const='debug', dest='buildType')
+    parser.add_argument('--eclipse', action='store_true', help='Create the eclipse '
+        'project file instead of the normal Makefile')
+    return parser
+
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+    parser = arg_parser()
+    parsed = parser.parse_args(args)
+    run_cmake(buildType=parsed.buildType, eclipse=parsed.eclipse)
+
+def run_cmake(buildType='release', eclipse=False):
+    if buildType.lower() == 'release':
+        buildType = 'Release'
+    elif buildType.lower() == 'debug':
+        buildType = 'Debug'
+    else:
+        raise ValueError(buildType)
+    
+    args = ['cmake', PROJECT_SRC_DIR, '-DCMAKE_BUILD_TYPE=%s' % buildType]
+    msg = ''
+    if eclipse:
+        args.append('-GEclipse CDT4 - Unix Makefiles')
+        msg = 'building eclipse project files'
+    else:
+        msg = 'building project Makefiles'
+    msg += ' (%s)' % buildType
+    print msg
+    print ' '.join(pipes.quote(x) for x in args)
+    subprocess.check_call(args)
+
+if __name__ == '__main__':
+    main()

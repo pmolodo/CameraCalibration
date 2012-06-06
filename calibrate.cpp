@@ -13,10 +13,15 @@
 #include <time.h>
 #include <vector>
 
-#include "cv.h"
-#include "ml.h"
-#include "cxcore.h"
-#include "highgui.h"
+#include <boost/filesystem.hpp>
+
+#include "opencv/cv.h"
+#include "opencv/ml.h"
+#include "opencv/cxcore.h"
+#include "opencv/highgui.h"
+
+namespace CameraCalibration
+{
 
 //////////////////////////////////////////////////
 // Constants
@@ -27,6 +32,8 @@ const int ESC_KEY = 27;
 const char* VIDEO_WINDOW = "Video Stream";
 const char* SNAPSHOT_WINDOW = "Snapshot";
 const char* UNDISTORT_WINDOW = "Undistort";
+
+const char* DEFAULT_DATA_FILENAME = "calibrationData.yaml";
 
 //////////////////////////////////////////////////
 // Exceptions
@@ -98,8 +105,10 @@ protected:
  	CvMat* _intrinsic_matrix;
  	CvMat* _distortion_coeffs;
 
-	std::string _intrinsicsFile;
-	std::string _distortionFile;
+	boost::filesystem::path _output_dir;
+	boost::filesystem::path _data_file;
+
+	struct tm _start_time;
 
 public:
 	CameraCalibrator(const CvSize& board_size_):
@@ -121,23 +130,18 @@ public:
 		printf("Image Size: %d x %d\n", image_size.width, image_size.height);
 
 		// Don't forgot the +1 for the null terminator
-		char intrinsicsFile[strlen("Intrinsics.2012-03-14.143050.xml") + 1];
-		char distortionFile[strlen("Distortion.2012-03-14.143050.xml") + 1];
+		char buffer[strlen("CamCalibration.2012-03-14.143050") + 1];
 		time_t rawtime;
-		struct tm timeinfo;
 		time(&rawtime);
-		timeinfo = *localtime(&rawtime);
-		int year = timeinfo.tm_year + 1900;
-		int month = timeinfo.tm_mon + 1;
-		sprintf(intrinsicsFile, "Intrinsics.%04d-%02d-%02d.%02d%02d%02d.xml",
-				year, month, timeinfo.tm_mday,
-				timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-		sprintf(distortionFile, "Distortion.%04d-%02d-%02d.%02d%02d%02d.xml",
-				year, month, timeinfo.tm_mday,
-				timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+		_start_time = *localtime(&rawtime);
 
-		_intrinsicsFile = intrinsicsFile;
-		_distortionFile = distortionFile;
+		int year = _start_time.tm_year + 1900;
+		int month = _start_time.tm_mon + 1;
+		sprintf(buffer, "CamCalibration.%04d-%02d-%02d.%02d%02d%02d",
+				year, month, _start_time.tm_mday,
+				_start_time.tm_hour, _start_time.tm_min, _start_time.tm_sec);
+		_output_dir = buffer;
+		_data_file = _outputFile(DEFAULT_DATA_FILENAME);
 	}
 
 	~CameraCalibrator()
@@ -348,26 +352,22 @@ public:
 
 
 		// Save the intrinsics and distortions
-		cvSave( _intrinsicsFile.c_str(), _intrinsic_matrix, "Intrinsics" );
-		cvSave( _distortionFile.c_str(), _distortion_coeffs, "Distortion" );
+//		std::string dataFile = _outputFile("calibrationData.yaml");
+		std::string dataFile = "calibrationData.yaml";
+
+		_saveData(_intrinsic_matrix, "Intrinsics",
+				"Intrinsic camera matrix");
+		_saveData(_distortion_coeffs, "Distortion",
+				"Radial distortion coefficients");
 	}
 
 
 
-	void loadCalibration(std::string intrinsicsFile="",
-			std::string distortionFile="")
+	void loadCalibration()
 	{
-		if (intrinsicsFile == "")
-		{
-			intrinsicsFile = _intrinsicsFile;
-		}
-		if (distortionFile == "")
-		{
-			distortionFile = _distortionFile;
-		}
 		// Example of loading these matrices back in
-		_intrinsic_matrix = (CvMat*)cvLoad( intrinsicsFile.c_str() );
-		_distortion_coeffs = (CvMat*)cvLoad( distortionFile.c_str() );
+		_intrinsic_matrix = _loadData<CvMat>("Intrinsics");
+		_distortion_coeffs = _loadData<CvMat>("Distortion");
 	}
 
 	void showDistortion()
@@ -414,12 +414,38 @@ public:
 		showDistortion();
 	}
 
+protected:
+	boost::filesystem::path _outputFile(const char* filename)
+	{
+		return _output_dir / filename;
+	}
+
+	template <class DataType>
+	void _saveData(DataType data, const char* name,
+			const char* description=NULL)
+	{
+		boost::filesystem::create_directory(_output_dir);
+		cvSave( _data_file.make_preferred().c_str(), data,
+				name, description);
+	}
+
+	template <class DataType>
+	DataType* _loadData(const char* name)
+	{
+		return (DataType*)cvLoad( _data_file.make_preferred().c_str(), NULL,
+				name);
+	}
+
 //	CvPoint cornerNumToCornerXY(int n)
 //	{
 //		return cvPoint(n / board_size.width, n % board_size.width);
 //	}
 
 };
+
+} // namespace CameraCalibration
+
+using namespace CameraCalibration;
 
 //int _tmain(int argc, _TCHAR* argv[])
 int main(int argc, char* argv[])
@@ -434,5 +460,3 @@ int main(int argc, char* argv[])
 	}
 	return 0;
 }
-
-
