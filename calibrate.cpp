@@ -155,6 +155,9 @@ public:
 		cvNamedWindow( VIDEO_WINDOW );
 		cvNamedWindow( SNAPSHOT_WINDOW );
 
+		cvMoveWindow( VIDEO_WINDOW, 0, 0);
+		cvMoveWindow( SNAPSHOT_WINDOW, image_size.width, 0);
+
 		std::vector<CvPoint2D32f> corners(n_corners);
 		int corner_count;
 
@@ -181,7 +184,7 @@ public:
 		CvFont font;
 		double hScale=1.0;
 		double vScale=1.0;
-		int    lineWidth=1;
+		int    lineWidth=2;
 		cvInitFont(&font,CV_FONT_HERSHEY_SIMPLEX|CV_FONT_ITALIC, hScale,vScale,0,lineWidth);
 
 		while( doCapture ){
@@ -221,8 +224,10 @@ public:
 						&(corners[0]), &corner_count,
 						CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FILTER_QUADS );
 
-				// If we got a good board...,
-				if ( corner_count == n_corners ){
+				// If we got a good board...
+				bool validBoard = (corner_count == n_corners and found);
+				if (validBoard)
+				{
 					// ...get subpixel accuracy on those corners...
 					cvFindCornerSubPix( gray_image, &(corners[0]), corner_count,
 							cvSize( 11, 11 ), cvSize( -1, -1 ),
@@ -237,6 +242,9 @@ public:
 				}
 
 				// Draw it
+
+				// Docs say we shouldn't modify currentFrame returned by cvQueryFrame -
+				// so copy to local_color_image, and draw corners over that
 				if (graySource)
 				{
 					cvCvtColor(currentFrame, local_color_image(), CV_GRAY2RGB);
@@ -248,20 +256,26 @@ public:
 
 				if ( corner_count > 0 )
 				{
-					// Docs say we shouldn't modify currentFrame returned by cvQueryFrame -
-					// so copy to local_color_image, and draw corners over that
 					cvDrawChessboardCorners( local_color_image(), board_size,
 							&(corners[0]), corner_count, found );
 				}
-				if (corner_count == 0)
+				if (not validBoard)
 				{
-					cvPutText (local_color_image(),"No chessboard found",
-							cvPoint(100,400), &font, cvScalar(255,255,0));
-				}
-				else if (corner_count < n_corners)
-				{
-					cvPutText (local_color_image(),"Incomplete chessboard",
-							cvPoint(100,400), &font, cvScalar(255,255,0));
+					const char* msg;
+					if (corner_count == 0)
+					{
+						msg = "No chessboard found";
+					}
+					else if (corner_count < n_corners)
+					{
+						msg = "Incomplete chessboard";
+					}
+					else
+					{
+						msg = "Corners cannot be ordered";
+					}
+					cvPutText (local_color_image(),msg,
+								cvPoint(100,400), &font, cvScalar(255,255,0));
 				}
 				cvShowImage( SNAPSHOT_WINDOW, local_color_image() );
 			}
