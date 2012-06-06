@@ -348,26 +348,8 @@ public:
 
 
 		// Save the intrinsics and distortions
-
-		// Don't forgot the +1 for the null terminator
-		char intrinsicsFile[strlen("Intrinsics.2012-03-14.143050.xml") + 1];
-		char distortionFile[strlen("Distortion.2012-03-14.143050.xml") + 1];
-		time_t rawtime;
-		struct tm timeinfo;
-		time(&rawtime);
-		timeinfo = *localtime(&rawtime);
-		int year = timeinfo.tm_year + 1900;
-		int month = timeinfo.tm_mon + 1;
-		sprintf(intrinsicsFile, "Intrinsics.%04d-%02d-%02d.%02d%02d%02d.xml",
-				year, month, timeinfo.tm_mday,
-				timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-		sprintf(distortionFile, "Distortion.%04d-%02d-%02d.%02d%02d%02d.xml",
-				year, month, timeinfo.tm_mday,
-				timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-
-		cvSave( intrinsicsFile, _intrinsic_matrix, "Intrinsics" );
-		cvSave( distortionFile, _distortion_coeffs, "Distortion" );
+		cvSave( _intrinsicsFile.c_str(), _intrinsic_matrix, "Intrinsics" );
+		cvSave( _distortionFile.c_str(), _distortion_coeffs, "Distortion" );
 	}
 
 
