@@ -1,3 +1,5 @@
+PROJECT(CameraCalibration)
+
 SET(appName cameraCalibration)
 SET(calibSrc calibrate.cpp)
 SET(BOOST_LIBS boost_system boost_filesystem)
