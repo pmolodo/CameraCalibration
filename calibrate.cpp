@@ -309,24 +309,36 @@ int main(int argc, char* argv[])
 #endif
         }
 
+        Mat viewColor;
+        Mat viewGray;
+
+        // Would like to always display a color image (so that we can have color
+        // text, chessboard overlays, etc)... but some processing may require
+        // grayscale
+        if (view.channels()==1)
+        {
+            viewGray = view;
+            // We will always want a color copy, so copy it now
+            cvtColor(view, viewColor, CV_GRAY2BGR);
+        }
+        else
+        {
+            // We may not want / need viewGray, so don't copy it now...
+            // we will need to check if viewGray is empty before use!
+            viewColor = view;
+        }
+
         if ( found)                // If done with success,
         {
               // improve the found corners' coordinate accuracy for chessboard
                 if( s.calibrationPattern == Settings::CHESSBOARD)
                 {
-                    Mat* viewGray;
-                    Mat localGray;
-                    // original cam input might be grayscale!
-                    if (view.channels() == 1)
+                    // now we want a gray image!
+                    if (viewGray.empty())
                     {
-                        viewGray = &view;
+                        cvtColor(view, viewGray, CV_BGR2GRAY);
                     }
-                    else
-                    {
-                        cvtColor(view, localGray, CV_BGR2GRAY);
-                        viewGray = &localGray;
-                    }
-                    cornerSubPix( *viewGray, pointBuf, Size(11,11),
+                    cornerSubPix( viewGray, pointBuf, Size(11,11),
                         Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
                 }
 
@@ -339,7 +351,7 @@ int main(int argc, char* argv[])
                 }
 
                 // Draw the corners.
-                drawChessboardCorners( view, s.boardSize, Mat(pointBuf), found );
+                drawChessboardCorners( viewColor, s.boardSize, Mat(pointBuf), found );
         }
 
         //----------------------------- Output Text ------------------------------------------------
@@ -347,7 +359,7 @@ int main(int argc, char* argv[])
                       mode == CALIBRATED ? "Calibrated" : "Press 'g' to start";
         int baseLine = 0;
         Size textSize = getTextSize(msg, 1, 1, 1, &baseLine);
-        Point textOrigin(view.cols - 2*textSize.width - 10, view.rows - 2*baseLine - 10);
+        Point textOrigin(viewColor.cols - 2*textSize.width - 10, viewColor.rows - 2*baseLine - 10);
 
         if( mode == CAPTURING )
         {
@@ -357,20 +369,20 @@ int main(int argc, char* argv[])
                 msg = format( "%d/%d", (int)imagePoints.size(), s.nrFrames );
         }
 
-        putText( view, msg, textOrigin, 1, 1, mode == CALIBRATED ?  GREEN : RED);
+        putText( viewColor, msg, textOrigin, 1, 1, mode == CALIBRATED ?  GREEN : RED);
 
         if( blinkOutput )
-            bitwise_not(view, view);
+            bitwise_not(viewColor, viewColor);
 
         //------------------------- Video capture  output  undistorted ------------------------------
         if( mode == CALIBRATED && s.showUndistorsed )
         {
-            Mat temp = view.clone();
-            undistort(temp, view, cameraMatrix, distCoeffs);
+            Mat temp = viewColor.clone();
+            undistort(temp, viewColor, cameraMatrix, distCoeffs);
         }
 
         //------------------------------ Show image and check for input commands -------------------
-        imshow("Image View", view);
+        imshow("Image View", viewColor);
         char key =  waitKey(s.inputCapture.isOpened() ? 50 : s.delay);
 
         if( key  == ESC_KEY )
