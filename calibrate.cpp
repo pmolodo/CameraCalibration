@@ -274,9 +274,9 @@ int main(int argc, char* argv[])
         //-----  If no more image, or got enough, then stop calibration and show result -------------
         if( mode == CAPTURING && imagePoints.size() >= (unsigned)s.nrFrames )
         {
-          if( runCalibrationAndSave(s, imageSize,  cameraMatrix, distCoeffs, imagePoints))
+            if( runCalibrationAndSave(s, imageSize,  cameraMatrix, distCoeffs, imagePoints))
               mode = CALIBRATED;
-          else
+            else
               mode = DETECTION;
         }
         if(view.empty())          // If no more images then run calibration, save and stop loop.
