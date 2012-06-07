@@ -236,7 +236,12 @@ int main(int argc, char* argv[])
         cout << "Could not open the configuration file: \"" << inputSettingsFile << "\"" << endl;
         return -1;
     }
+
+#if OPENCV_2_4
     fs["Settings"] >> s;
+#else
+    read(fs["Settings"], s);
+#endif
     fs.release();                                         // close Settings file
 
     if (!s.goodInput)
