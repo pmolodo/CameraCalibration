@@ -33,7 +33,11 @@ class Settings
 {
 public:
     Settings() : goodInput(false) {}
-    enum Pattern { NOT_EXISTING, CHESSBOARD, CIRCLES_GRID, ASYMMETRIC_CIRCLES_GRID };
+    enum Pattern { NOT_EXISTING, CHESSBOARD,
+#if OPENCV_2_4
+        CIRCLES_GRID, ASYMMETRIC_CIRCLES_GRID
+#endif
+    };
     enum InputType {INVALID, CAMERA, VIDEO_FILE, IMAGE_LIST};
 
     void write(FileStorage& fs) const                        //Write serialization for this class
@@ -137,8 +141,10 @@ public:
 
         calibrationPattern = NOT_EXISTING;
         if (!patternToUse.compare("CHESSBOARD")) calibrationPattern = CHESSBOARD;
+#if OPENCV_2_4
         if (!patternToUse.compare("CIRCLES_GRID")) calibrationPattern = CIRCLES_GRID;
         if (!patternToUse.compare("ASYMMETRIC_CIRCLES_GRID")) calibrationPattern = ASYMMETRIC_CIRCLES_GRID;
+#endif
         if (calibrationPattern == NOT_EXISTING)
             {
                 cerr << " Inexistent camera calibration mode: " << patternToUse << endl;
