@@ -543,11 +543,29 @@ void saveCameraParams( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& dis
             Mat r = bigmat(Range(i, i+1), Range(0,3));
             Mat t = bigmat(Range(i, i+1), Range(3,6));
 
-            CV_Assert(rvecs[i].rows == 3 && rvecs[i].cols == 1);
-            CV_Assert(tvecs[i].rows == 3 && tvecs[i].cols == 1);
-            //*.t() is MatExpr (not Mat) so we can use assignment operator
-            r = rvecs[i].t();
-            t = tvecs[i].t();
+            // Not sure if this is a difference due to OpenCV 2.2 vs 2.4...
+            // but in 2.2 rvecs (and possibly tvecs?) were rows=1, col=3...
+            // whereas previous code (which was built for 2.4) expected
+            // rows=3, cols=1
+            if (rvecs[i].rows == 3 && rvecs[i].cols == 1)
+            {
+                //*.t() is MatExpr (not Mat) so we can use assignment operator
+                r = rvecs[i].t();
+            }
+            else if (rvecs[i].rows == 1 && rvecs[i].cols == 3)
+            {
+                rvecs[i].copyTo(r);
+            }
+
+            if (tvecs[i].rows == 3 && tvecs[i].cols == 1)
+            {
+                //*.t() is MatExpr (not Mat) so we can use assignment operator
+                t = tvecs[i].t();
+            }
+            else if (tvecs[i].rows == 1 && tvecs[i].cols == 3)
+            {
+                tvecs[i].copyTo(t);
+            }
         }
         cvWriteComment( *fs, "a set of 6-tuples (rotation vector + translation vector) for each view", 0 );
         fs << "Extrinsic_Parameters" << bigmat;
