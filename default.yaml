@@ -1,0 +1,45 @@
+%YAML:1.0
+Settings:
+   # Number of inner corners per a item row and column. (square, circle)
+   BoardSize_Width: 10
+   BoardSize_Height: 13
+
+   # The size of a square in some user defined metric system (pixel, millimeter)
+   Square_Size: 50.
+
+   # The type of input used for camera calibration. One of: CHESSBOARD CIRCLES_GRID ASYMMETRIC_CIRCLES_GRID
+   # (the last two are only supported in OpenCV 2.4)
+   Calibrate_Pattern: CHESSBOARD
+
+   # The input to use for calibration.
+   #     To use an input camera -> give the ID of the camera, like "1"
+   #     To use an input video  -> give the path of the input video, like "/tmp/x.avi"
+   #     To use an image list   -> give the path to the XML or YAML file containing the list of the images, like "/tmp/circles_list.xml"
+   Input: "300"
+   # If true (non-zero) we flip the input images around the horizontal axis.
+   Input_FlipAroundHorizontalAxis: 0
+
+   # Time delay between frames in case of camera.
+   Input_Delay: 100
+
+   # How many frames to use, for calibration.
+   Calibrate_NrOfFrameToUse: 25
+   # Consider only fy as a free parameter, the ratio fx/fy stays the same as in the input cameraMatrix.
+   #    Use or not setting. 0 - False Non-Zero - True
+   Calibrate_FixAspectRatio: 1.
+   # If true (non-zero) tangential distortion coefficients  are set to zeros and stay zero.
+   Calibrate_AssumeZeroTangentialDistortion: 1
+   # If true (non-zero) the principal point is not changed during the global optimization.
+   Calibrate_FixPrincipalPointAtTheCenter: 1
+
+   # The name of the output log file.
+   Write_outputFileName: "out_camera_data.yaml"
+   # If true (non-zero) we write to the output file the feature points.
+   Write_DetectedFeaturePoints: 1
+   # If true (non-zero) we write to the output file the extrinsic camera parameters.
+   Write_extrinsicParameters: 1
+
+   # If true (non-zero) we show after calibration the undistorted images.
+   Show_UndistortedImage: 1
+
+
