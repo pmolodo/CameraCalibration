@@ -8,6 +8,7 @@
 // Modified from code from http://docs.opencv.org/_downloads/camera_calibration.cpp
 //   (tutorial page: http://docs.opencv.org/doc/tutorials/calib3d/camera_calibration/camera_calibration.html#cameracalibrationopencv)
 
+
 #include <iostream>
 #include <stdio.h>
 #include <sstream>
@@ -287,12 +288,14 @@ int main(int argc, char* argv[])
             found = findChessboardCorners( view, s.boardSize, pointBuf,
                 CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
             break;
+#if OPENCV_2_4
         case Settings::CIRCLES_GRID:
             found = findCirclesGrid( view, s.boardSize, pointBuf );
             break;
         case Settings::ASYMMETRIC_CIRCLES_GRID:
             found = findCirclesGrid( view, s.boardSize, pointBuf, CALIB_CB_ASYMMETRIC_GRID );
             break;
+#endif
         }
 
         if ( found)                // If done with success,
@@ -421,17 +424,21 @@ void calcBoardCornerPositions(Size boardSize, float squareSize, vector<Point3f>&
     switch(patternType)
     {
     case Settings::CHESSBOARD:
+#if OPENCV_2_4
     case Settings::CIRCLES_GRID:
+#endif
         for( int i = 0; i < boardSize.height; ++i )
             for( int j = 0; j < boardSize.width; ++j )
                 corners.push_back(Point3f(float( j*squareSize ), float( i*squareSize ), 0));
         break;
 
+#if OPENCV_2_4
     case Settings::ASYMMETRIC_CIRCLES_GRID:
         for( int i = 0; i < boardSize.height; i++ )
             for( int j = 0; j < boardSize.width; j++ )
                 corners.push_back(Point3f(float((2*j + i % 2)*squareSize), float(i*squareSize), 0));
         break;
+#endif
     }
 }
 
