@@ -9,6 +9,7 @@
 //   (tutorial page: http://docs.opencv.org/doc/tutorials/calib3d/camera_calibration/camera_calibration.html#cameracalibrationopencv)
 
 #include <iostream>
+#include <stdio.h>
 #include <sstream>
 #include <time.h>
 
