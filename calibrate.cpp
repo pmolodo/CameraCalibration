@@ -46,39 +46,60 @@ public:
                   << "BoardSize_Height" << boardSize.height
                   << "Square_Size"         << squareSize
                   << "Calibrate_Pattern" << patternToUse
+
+                  << "Input" << input
+                  << "Input_FlipAroundHorizontalAxis" << flipVertical
+                  << "Input_Delay" << delay
+
                   << "Calibrate_NrOfFrameToUse" << nrFrames
                   << "Calibrate_FixAspectRatio" << aspectRatio
                   << "Calibrate_AssumeZeroTangentialDistortion" << calibZeroTangentDist
                   << "Calibrate_FixPrincipalPointAtTheCenter" << calibFixPrincipalPoint
 
+                  << "Write_outputDir" << outputDir
+                  << "Write_outputFileName" << outputFileName
                   << "Write_DetectedFeaturePoints" << bwritePoints
-                  << "Write_extrinsicParameters"   << bwriteExtrinsics
-                  << "Write_outputFileName"  << outputFileName
+                  << "Write_extrinsicParameters" << bwriteExtrinsics
+                  << "Write_raw_calibration_images" << bwriteRawImage
+                  << "Write_raw_image_fileName" << rawImageFileName
+                  << "Write_overlay_calibration_images" << bwriteOverlayImage
+                  << "Write_overlay_image_fileName" << overlayImageFileName
+                  << "Write_calibration_image_list" << bwriteImageList
+                  << "Write_image_list_fileName" << imageListFileName
 
                   << "Show_UndistortedImage" << showUndistorsed
 
-                  << "Input_FlipAroundHorizontalAxis" << flipVertical
-                  << "Input_Delay" << delay
-                  << "Input" << input
            << "}";
     }
     void read(const FileNode& node)                          //Read serialization for this class
     {
         node["BoardSize_Width" ] >> boardSize.width;
         node["BoardSize_Height"] >> boardSize.height;
-        node["Calibrate_Pattern"] >> patternToUse;
         node["Square_Size"]  >> squareSize;
+        node["Calibrate_Pattern"] >> patternToUse;
+
+        node["Input"] >> input;
+        node["Input_FlipAroundHorizontalAxis"] >> flipVertical;
+        node["Input_Delay"] >> delay;
+
         node["Calibrate_NrOfFrameToUse"] >> nrFrames;
         node["Calibrate_FixAspectRatio"] >> aspectRatio;
-        node["Write_DetectedFeaturePoints"] >> bwritePoints;
-        node["Write_extrinsicParameters"] >> bwriteExtrinsics;
-        node["Write_outputFileName"] >> outputFileName;
         node["Calibrate_AssumeZeroTangentialDistortion"] >> calibZeroTangentDist;
         node["Calibrate_FixPrincipalPointAtTheCenter"] >> calibFixPrincipalPoint;
-        node["Input_FlipAroundHorizontalAxis"] >> flipVertical;
+
+
+        node["Write_outputDir"] >> outputDir;
+        node["Write_outputFileName"] >> outputFileName;
+        node["Write_DetectedFeaturePoints"] >> bwritePoints;
+        node["Write_extrinsicParameters"] >> bwriteExtrinsics;
+        node["Write_raw_calibration_images"] >> bwriteRawImage;
+        node["Write_raw_image_fileName"] >> rawImageFileName;
+        node["Write_overlay_calibration_images"] >> bwriteOverlayImage;
+        node["Write_overlay_image_fileName"] >> overlayImageFileName;
+        node["Write_calibration_image_list"] >> bwriteImageList;
+        node["Write_image_list_fileName"] >> imageListFileName;
+
         node["Show_UndistortedImage"] >> showUndistorsed;
-        node["Input"] >> input;
-        node["Input_Delay"] >> delay;
         interprate();
     }
     void interprate()
@@ -182,6 +203,8 @@ public:
             l.push_back((string)*it);
         return true;
     }
+
+
 public:
     Size boardSize;            // The size of the board -> Number of items by width and height
     Pattern calibrationPattern;// One of the Chessboard, circles, or asymmetric circle pattern
@@ -189,16 +212,23 @@ public:
     int nrFrames;              // The number of frames to use from the input for calibration
     float aspectRatio;         // The aspect ratio
     int delay;                 // In case of a video input
-    bool bwritePoints;         //  Write detected feature points
-    bool bwriteExtrinsics;     // Write extrinsic parameters
     bool calibZeroTangentDist; // Assume zero tangential distortion
     bool calibFixPrincipalPoint;// Fix the principal point at the center
     bool flipVertical;          // Flip the captured images around the horizontal axis
-    string outputFileName;      // The name of the file where to write
-    bool showUndistorsed;       // Show undistorted images after calibration
     string input;               // The input ->
 
+    string outputDir;               // directory all other output images are placed under
+    string outputFileName;          // The name of the file where to write
+    bool bwritePoints;              //  Write detected feature points
+    bool bwriteExtrinsics;          // Write extrinsic parameters
+    bool bwriteRawImage;            // Write raw captured calibration images
+    string rawImageFileName;        // The name pattern for raw images
+    bool bwriteOverlayImage;        // Write board-overlayed captured calibration images
+    string overlayImageFileName;    // The name pattern for overlay images
+    bool bwriteImageList;           // Write out an image list when writing raw images
+    string imageListFileName;       // The filename for the image list
 
+    bool showUndistorsed;       // Show undistorted images after calibration
 
     int cameraID;
     vector<string> imageList;

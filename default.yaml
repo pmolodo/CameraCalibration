@@ -1,12 +1,21 @@
 %YAML:1.0
 Settings:
+   # When specifying paths, the following tokens are supported:
+   #    %D: replaced with the date, in year-month-day format, ie: 2012-06-20
+   #    %T: replaced with the time, as 6 digits, ie 161859 for 4:18 pm, and 59 seconds
+   #    %d: replaced with the integer number if the output can be used several
+   #        times - ie, for the filename of output images; printf-style format
+   #        specifiers are allowed, ie %04d; if used when multiple outputs do
+   #        not make sense, the number 0 is used
+   #    %%: relaced with a single percent sign
+   # Path names should NOT use a % sign followed by any character not mentioned
+   # here, or else the program may error
+
    # Number of inner corners per a item row and column. (square, circle)
    BoardSize_Width: 10
    BoardSize_Height: 13
-
    # The size of a square in some user defined metric system (pixel, millimeter)
    Square_Size: 50.
-
    # The type of input used for camera calibration. One of: CHESSBOARD CIRCLES_GRID ASYMMETRIC_CIRCLES_GRID
    # (the last two are only supported in OpenCV 2.4)
    Calibrate_Pattern: CHESSBOARD
@@ -18,7 +27,6 @@ Settings:
    Input: "300"
    # If true (non-zero) we flip the input images around the horizontal axis.
    Input_FlipAroundHorizontalAxis: 0
-
    # Time delay between frames in case of camera.
    Input_Delay: 100
 
@@ -32,12 +40,34 @@ Settings:
    # If true (non-zero) the principal point is not changed during the global optimization.
    Calibrate_FixPrincipalPointAtTheCenter: 1
 
+   # If a non-empty string, all writen outputs will be placed in a directory
+   # with the given name.
+   Write_outputDir: ""
    # The name of the output log file.
    Write_outputFileName: "out_camera_data.yaml"
    # If true (non-zero) we write to the output file the feature points.
    Write_DetectedFeaturePoints: 1
    # If true (non-zero) we write to the output file the extrinsic camera parameters.
    Write_extrinsicParameters: 1
+   # If true (non-zero), when capturing (from a video file or a live camera),
+   # write out any raw images in which a calibration pattern is found
+   Write_raw_calibration_images: 1
+   # If Write_raw_calibration_images, gives the filename to output the images as
+   # (if no %d is found, the number will be tacked on the end)
+   Write_raw_image_fileName: "rawBoardImage_%04d.jpg"
+   # If true (non-zero), when capturing (from a video file or a live camera),
+   # write out the board-overlaid images in which a calibration pattern is
+   # found
+   Write_overlay_calibration_images: 1
+   # If Write_overlay_calibration_images, gives the filename to output the images
+   # as (if no %d is found, the number will be tacked on the end)
+   Write_overlay_image_fileName: "overlayBoardImage_%04d.jpg"
+   # If true (non-zero), and raw calibration images are being written, also
+   # write out an xml/yaml list of the images, in a format that would be
+   # suitable as the input on a later run
+   Write_calibration_image_list: 1
+   # If Write_calibration_image_list, gives the filename to output the list as
+   Write_image_list_fileName: "boardImages.yaml"
 
    # If true (non-zero) we show after calibration the undistorted images.
    Show_UndistortedImage: 1
