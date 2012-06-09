@@ -20,6 +20,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include <boost/filesystem.hpp>
+#include <boost/regex.hpp>
 
 using namespace cv;
 using namespace std;
@@ -34,12 +35,90 @@ void help()
              "how to edit it.  It may be any OpenCV supported file format XML/YAML." << endl;
 }
 
-// removes trailing slashes, and uses make_preferred
+struct tm currentTime()
+{
+    time_t rawtime;
+    struct tm timeinfo;
+    time(&rawtime);
+    timeinfo = *localtime(&rawtime);
+    return timeinfo;
+}
+
+struct tm startTime;
+
+string dateString(const struct tm& timeinfo)
+{
+    int year = timeinfo.tm_year + 1900;
+    int month = timeinfo.tm_mon + 1;
+    return format("%04d-%02d-%02d", year, month, timeinfo.tm_mday);
+}
+
+string timeString(const struct tm& timeinfo)
+{
+    return format("%02d%02d%02d", timeinfo.tm_hour, timeinfo.tm_min,
+            timeinfo.tm_sec);
+}
+
+// Replaces all occurrences of toFind in toModify with toReplace; returns number
+// of replacements made
+int replaceAll(string& toModify, const string& toFind, const string& toReplace)
+{
+    int foundIndex;
+    int startPos = 0;
+    int foundCount = 0;
+
+    while(foundIndex = toModify.find(toFind, startPos))
+    {
+        foundCount += 1;
+        toModify.replace(foundIndex, toFind.size(), toReplace);
+        startPos += toReplace.size();
+    }
+    return foundCount;
+}
+
+/*
+   # When specifying paths, the following tokens are supported:
+   #    %D: replaced with the date, in year-month-day format, ie: 2012-06-20
+   #    %T: replaced with the time, as 6 digits, ie 161859 for 4:18 pm, and 59 seconds
+   #    %d: replaced with the integer number if the output can be used several
+   #        times - ie, for the filename of output images; printf-style format
+   #        specifiers are allowed, ie %04d; if used when multiple outputs do
+   #        not make sense, the number 0 is used
+   #    %%: relaced with a single percent sign
+ */
+
+
+// If useStartTime, then use the time cached when main ran; otherwise, use the
+// current time
+void replaceTokens(string& toModify, bool useStartTime, int counter=0)
+{
+    // match printf-style %d tokens
+    static const boost::regex intFormatRE("%[-+ #0]*[0-9]*(\\.[0-9]*)?[hl]d");
+
+    struct tm timeinfo;
+    if (useStartTime)
+    {
+        timeinfo = ::startTime;
+    }
+    else
+    {
+        timeinfo = currentTime();
+    }
+    replaceAll(toModify, "%D", dateString(timeinfo));
+    replaceAll(toModify, "%T", timeString(timeinfo));
+
+
+}
+
+// removes trailing slashes, uses make_preferred
 void standardizePath(bfs::path& inPath)
 {
+    string pathStr = inPath.string();
+
     inPath.make_preferred();
     if (inPath.filename() == ".") inPath.remove_filename();
 }
+
 
 class Settings
 {
