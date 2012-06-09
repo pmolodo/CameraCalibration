@@ -13,5 +13,5 @@ SET(appName cameraCalibration)
 SET(calibSrc calibrate.cpp)
 
 ADD_EXECUTABLE(${appName} ${calibSrc})
-TARGET_LINK_LIBRARIES( ${appName} ${BOOST_LIBS} )
+TARGET_LINK_LIBRARIES( ${appName} ${Boost_LIBRARIES} )
 TARGET_LINK_LIBRARIES( ${appName} ${OpenCV_LIBS} )

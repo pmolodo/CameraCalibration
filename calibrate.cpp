@@ -19,8 +19,12 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <boost/filesystem.hpp>
+
 using namespace cv;
 using namespace std;
+
+namespace bfs = boost::filesystem;
 
 void help()
 {
@@ -29,6 +33,14 @@ void help()
          <<  "Near the sample file you'll find the configuration file, which has detailed help of "
              "how to edit it.  It may be any OpenCV supported file format XML/YAML." << endl;
 }
+
+// removes trailing slashes, and uses make_preferred
+void standardizePath(bfs::path& inPath)
+{
+    inPath.make_preferred();
+    if (inPath.filename() == ".") inPath.remove_filename();
+}
+
 class Settings
 {
 public:
@@ -56,16 +68,16 @@ public:
                   << "Calibrate_AssumeZeroTangentialDistortion" << calibZeroTangentDist
                   << "Calibrate_FixPrincipalPointAtTheCenter" << calibFixPrincipalPoint
 
-                  << "Write_outputDir" << outputDir
-                  << "Write_outputFileName" << outputFileName
+                  << "Write_outputDir" << outputDir.string()
+                  << "Write_outputFileName" << outputFileName.string()
                   << "Write_DetectedFeaturePoints" << bwritePoints
                   << "Write_extrinsicParameters" << bwriteExtrinsics
                   << "Write_raw_calibration_images" << bwriteRawImage
-                  << "Write_raw_image_fileName" << rawImageFileName
+                  << "Write_raw_image_fileName" << rawImageFileName.string()
                   << "Write_overlay_calibration_images" << bwriteOverlayImage
-                  << "Write_overlay_image_fileName" << overlayImageFileName
+                  << "Write_overlay_image_fileName" << overlayImageFileName.string()
                   << "Write_calibration_image_list" << bwriteImageList
-                  << "Write_image_list_fileName" << imageListFileName
+                  << "Write_image_list_fileName" << imageListFileName.string()
 
                   << "Show_UndistortedImage" << showUndistorsed
 
@@ -102,6 +114,7 @@ public:
         node["Show_UndistortedImage"] >> showUndistorsed;
         interprate();
     }
+
     void interprate()
     {
         goodInput = true;
@@ -173,7 +186,13 @@ public:
             }
         atImageList = 0;
 
+        outputDir = bfs::absolute(outputDir);
+        makeOutputPath(outputFileName);
+        makeOutputPath(rawImageFileName);
+        makeOutputPath(overlayImageFileName);
+        makeOutputPath(imageListFileName);
     }
+
     Mat nextImage()
     {
         Mat result;
@@ -184,12 +203,12 @@ public:
             view0.copyTo(result);
         }
         else if( atImageList < (int)imageList.size() )
-            result = imread(imageList[atImageList++], CV_LOAD_IMAGE_COLOR);
+            result = imread( imageList[atImageList++].string(), CV_LOAD_IMAGE_COLOR);
 
         return result;
     }
 
-    static bool readStringList( const string& filename, vector<string>& l )
+    static bool readStringList( const string& filename, vector<bfs::path>& l )
     {
         l.clear();
         FileStorage fs(filename, FileStorage::READ);
@@ -202,6 +221,25 @@ public:
         for( ; it != it_end; ++it )
             l.push_back((string)*it);
         return true;
+    }
+
+    void makeOutputPath( bfs::path& file)
+    {
+        standardizePath(file);
+        if (not outputDir.empty() and file.is_relative())
+        {
+            file = outputDir / file;
+        }
+        file = absolute(file);
+    }
+
+    void outputPrep( const bfs::path& outputPath )
+    {
+        bfs::path parent(absolute(outputPath).parent_path());
+        if (not bfs::exists(parent))
+        {
+            create_directories(parent);
+        }
     }
 
 
@@ -217,21 +255,21 @@ public:
     bool flipVertical;          // Flip the captured images around the horizontal axis
     string input;               // The input ->
 
-    string outputDir;               // directory all other output images are placed under
-    string outputFileName;          // The name of the file where to write
+    bfs::path outputDir;               // directory all other output images are placed under
+    bfs::path outputFileName;          // The name of the file where to write
     bool bwritePoints;              //  Write detected feature points
     bool bwriteExtrinsics;          // Write extrinsic parameters
     bool bwriteRawImage;            // Write raw captured calibration images
-    string rawImageFileName;        // The name pattern for raw images
+    bfs::path rawImageFileName;        // The name pattern for raw images
     bool bwriteOverlayImage;        // Write board-overlayed captured calibration images
-    string overlayImageFileName;    // The name pattern for overlay images
+    bfs::path overlayImageFileName;    // The name pattern for overlay images
     bool bwriteImageList;           // Write out an image list when writing raw images
-    string imageListFileName;       // The filename for the image list
+    bfs::path imageListFileName;       // The filename for the image list
 
     bool showUndistorsed;       // Show undistorted images after calibration
 
     int cameraID;
-    vector<string> imageList;
+    vector<bfs::path> imageList;
     int atImageList;
     VideoCapture inputCapture;
     InputType inputType;
@@ -244,17 +282,35 @@ private:
 
 };
 
-void write(FileStorage& fs, const std::string&, const Settings& x)
+namespace cv
 {
-    x.write(fs);
-}
-void read(const FileNode& node, Settings& x, const Settings& default_value = Settings())
-{
-    if(node.empty())
-        x = default_value;
-    else
-        x.read(node);
-}
+    void write(FileStorage& fs, const std::string&, const Settings& x)
+    {
+        x.write(fs);
+    }
+    void read(const FileNode& node, Settings& x, const Settings& default_value = Settings())
+    {
+        if(node.empty())
+            x = default_value;
+        else
+            x.read(node);
+    }
+
+    void read(const FileNode& node, bfs::path& p, const bfs::path& default_value = bfs::path())
+    {
+        if(node.empty())
+        {
+            p = default_value;
+        }
+        else
+        {
+            string temp;
+            node >> temp;
+            p = temp;
+            standardizePath(p);
+        }
+    }
+} // namespace cv
 
 enum { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
 
@@ -438,7 +494,7 @@ int main(int argc, char* argv[])
 
         for(int i = 0; i < (int)s.imageList.size(); i++ )
         {
-            view = imread(s.imageList[i], 1);
+            view = imread(s.imageList[i].string(), 1);
             if(view.empty())
                 continue;
             remap(view, rview, map1, map2, INTER_LINEAR);
@@ -541,7 +597,8 @@ void saveCameraParams( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& dis
                        const vector<float>& reprojErrs, const vector<vector<Point2f> >& imagePoints,
                        double totalAvgErr )
 {
-    FileStorage fs( s.outputFileName, FileStorage::WRITE );
+    s.outputPrep(s.outputFileName);
+    FileStorage fs( s.outputFileName.string(), FileStorage::WRITE );
 
     time_t t;
     time( &t );
