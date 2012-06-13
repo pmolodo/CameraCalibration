@@ -584,13 +584,14 @@ int main(int argc, char* argv[])
                     Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
             }
 
-            if( // capture if we're in auto capture, or manual capture and we
-                // pressed the button...
-                (mode == AUTO_CAPTURE || (mode == MANUAL_CAPTURE && captureRequested )
-                // ...AND we're processing an image list, or the delay time has
-                // passed
-                && (!s.inputCapture.isOpened()
-                     || nowClock - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) ))
+            if(
+                // capture if we're in manual mode, and button was pressed...
+                (mode == MANUAL_CAPTURE && captureRequested )
+                // ..or if we're in auto_mode, and we're processing an image
+                // list, or delay time has passed
+                || (mode == AUTO_CAPTURE
+                    && (!s.inputCapture.isOpened()
+                        || nowClock - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) ))
             {
                 captureRequested = false;
                 newCalibrationImage = true;
