@@ -519,6 +519,13 @@ int main(int argc, char* argv[])
                 drawChessboardCorners( viewColor, s.boardSize, Mat(pointBuf), found );
         }
 
+        //------------------------- Video capture  output  undistorted ------------------------------
+        if( mode == CALIBRATED && s.showUndistorsed )
+        {
+            Mat temp = viewColor.clone();
+            undistort(temp, viewColor, cameraMatrix, distCoeffs);
+        }
+
         //----------------------------- Output Text ------------------------------------------------
         string msg = (mode == CAPTURING) ? "100/100" :
                       mode == CALIBRATED ? "Calibrated" : "Press 'g' to start";
@@ -538,13 +545,6 @@ int main(int argc, char* argv[])
 
         if( blinkOutput )
             bitwise_not(viewColor, viewColor);
-
-        //------------------------- Video capture  output  undistorted ------------------------------
-        if( mode == CALIBRATED && s.showUndistorsed )
-        {
-            Mat temp = viewColor.clone();
-            undistort(temp, viewColor, cameraMatrix, distCoeffs);
-        }
 
         //------------------------------ Show image and check for input commands -------------------
         imshow("Image View", viewColor);
