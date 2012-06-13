@@ -12,10 +12,12 @@ Settings:
    # here, or else the program may error
 
    # Number of inner corners per a item row and column. (square, circle)
-   BoardSize_Width: 10
-   BoardSize_Height: 13
+   BoardSize_Width: 6
+   BoardSize_Height: 9
    # The size of a square in some user defined metric system (pixel, millimeter)
-   Square_Size: 50.
+   #Square_Size: 1.0 # in inches
+   Square_Size: 25.4 # 1 inch, in mm
+
    # The type of input used for camera calibration. One of: CHESSBOARD CIRCLES_GRID ASYMMETRIC_CIRCLES_GRID
    # (the last two are only supported in OpenCV 2.4)
    Calibrate_Pattern: CHESSBOARD
