@@ -40,7 +40,7 @@ Settings:
    # If true (non-zero) tangential distortion coefficients  are set to zeros and stay zero.
    Calibrate_AssumeZeroTangentialDistortion: 1
    # If true (non-zero) the principal point is not changed during the global optimization.
-   Calibrate_FixPrincipalPointAtTheCenter: 1
+   Calibrate_FixPrincipalPointAtTheCenter: 0
 
    # If a non-empty string, all writen outputs will be placed in a directory
    # with the given name.
