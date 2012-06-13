@@ -7,7 +7,7 @@ find_package(OpenCV REQUIRED
     opencv_imgproc
     opencv_highgui)
 
-find_package(Boost REQUIRED system filesystem)
+find_package(Boost REQUIRED system filesystem regex)
 
 SET(appName cameraCalibration)
 SET(calibSrc calibrate.cpp)

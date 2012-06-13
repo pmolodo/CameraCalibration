@@ -67,8 +67,10 @@ int replaceAll(string& toModify, const string& toFind, const string& toReplace)
     int startPos = 0;
     int foundCount = 0;
 
-    while(foundIndex = toModify.find(toFind, startPos))
+    while(startPos < toModify.size())
     {
+        foundIndex = toModify.find(toFind, startPos);
+        if (foundIndex < 0) break;
         foundCount += 1;
         toModify.replace(foundIndex, toFind.size(), toReplace);
         startPos += toReplace.size();
@@ -92,9 +94,6 @@ int replaceAll(string& toModify, const string& toFind, const string& toReplace)
 // current time
 void replaceTokens(string& toModify, bool useStartTime, int counter=0)
 {
-    // match printf-style %d tokens
-    static const boost::regex intFormatRE("%[-+ #0]*[0-9]*(\\.[0-9]*)?[hl]d");
-
     struct tm timeinfo;
     if (useStartTime)
     {
@@ -108,6 +107,28 @@ void replaceTokens(string& toModify, bool useStartTime, int counter=0)
     replaceAll(toModify, "%T", timeString(timeinfo));
 
 
+    // match printf-style %d tokens
+    static const boost::regex intFormatRE("%[-+ #0]{0,5}[0-9]*(\\.[0-9]*)?[hl]?d");
+
+    boost::match_results<string::iterator> match;
+    //boost::smatch match;
+    string::iterator start = toModify.begin();
+    string::iterator end = toModify.end();
+    int currentPos = 0;
+    while(regex_search(start, end, match, intFormatRE))
+    {
+        // do the replacement in the matched substring
+        string orig = match.str();
+        string toReplace = format(orig.c_str(), counter);
+        // match.position() will give an index relative to the start iterator
+        // we give it... so to get position of match within the string, we add
+        // currentPos
+        currentPos += match.position();
+        toModify.replace(currentPos, orig.size(), toReplace);
+        currentPos += toReplace.size();
+        start = toModify.begin() + currentPos;
+        end = toModify.end();
+    }
 }
 
 // removes trailing slashes, uses make_preferred
@@ -266,7 +287,9 @@ public:
         atImageList = 0;
 
         outputDir = bfs::absolute(outputDir);
+        replacePathTokens(outputDir, true);
         makeOutputPath(outputFileName);
+        replacePathTokens(outputFileName, true);
         makeOutputPath(rawImageFileName);
         makeOutputPath(overlayImageFileName);
         makeOutputPath(imageListFileName);
@@ -318,6 +341,16 @@ public:
         if (not bfs::exists(parent))
         {
             create_directories(parent);
+        }
+    }
+
+    void replacePathTokens(bfs::path& path, bool useStartTime, int counter=0)
+    {
+        if (not path.empty())
+        {
+            string newPath = path.string();
+            replaceTokens(newPath, useStartTime, counter);
+            path = newPath;
         }
     }
 
