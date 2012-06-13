@@ -90,22 +90,10 @@ int replaceAll(string& toModify, const string& toFind, const string& toReplace)
  */
 
 
-// If useStartTime, then use the time cached when main ran; otherwise, use the
-// current time
-void replaceTokens(string& toModify, bool useStartTime, int counter=0)
+void replaceTokens(string& toModify, struct tm timeinfo, int counter=0)
 {
-    struct tm timeinfo;
-    if (useStartTime)
-    {
-        timeinfo = ::startTime;
-    }
-    else
-    {
-        timeinfo = currentTime();
-    }
     replaceAll(toModify, "%D", dateString(timeinfo));
     replaceAll(toModify, "%T", timeString(timeinfo));
-
 
     // match printf-style %d tokens
     static const boost::regex intFormatRE("%[-+ #0]{0,5}[0-9]*(\\.[0-9]*)?[hl]?d");
@@ -130,6 +118,12 @@ void replaceTokens(string& toModify, bool useStartTime, int counter=0)
         end = toModify.end();
     }
 }
+
+void replaceTokens(string& toModify)
+{
+    replaceTokens(toModify, startTime);
+}
+
 
 // removes trailing slashes, uses make_preferred
 void standardizePath(bfs::path& inPath)
@@ -287,9 +281,9 @@ public:
         atImageList = 0;
 
         outputDir = bfs::absolute(outputDir);
-        replacePathTokens(outputDir, true);
+        replacePathTokens(outputDir);
         makeOutputPath(outputFileName);
-        replacePathTokens(outputFileName, true);
+        replacePathTokens(outputFileName);
         makeOutputPath(rawImageFileName);
         makeOutputPath(overlayImageFileName);
         makeOutputPath(imageListFileName);
@@ -344,14 +338,19 @@ public:
         }
     }
 
-    void replacePathTokens(bfs::path& path, bool useStartTime, int counter=0)
+    void replacePathTokens(bfs::path& path, struct tm timeinfo, int counter=0)
     {
         if (not path.empty())
         {
             string newPath = path.string();
-            replaceTokens(newPath, useStartTime, counter);
+            replaceTokens(newPath, timeinfo, counter);
             path = newPath;
         }
+    }
+
+    void replacePathTokens(bfs::path& path)
+    {
+        replacePathTokens(path, ::startTime);
     }
 
 
@@ -431,6 +430,8 @@ bool runCalibrationAndSave(Settings& s, Size imageSize, Mat&  cameraMatrix, Mat&
 
 int main(int argc, char* argv[])
 {
+    startTime = currentTime();
+
     help();
     Settings s;
     const string inputSettingsFile = argc > 1 ? argv[1] : "default.yaml";
@@ -459,6 +460,8 @@ int main(int argc, char* argv[])
     Size imageSize;
     int mode = s.inputType == Settings::IMAGE_LIST ? CAPTURING : DETECTION;
     clock_t prevTimestamp = 0;
+    clock_t nowClock;
+    struct tm nowTime;
     const Scalar RED(0,0,255), GREEN(0,255,0);
     const char ESC_KEY = 27;
 
@@ -484,7 +487,8 @@ int main(int argc, char* argv[])
             break;
         }
 
-
+        nowClock = clock();
+        nowTime = currentTime();
         imageSize = view.size();  // Format input image.
         if( s.flipVertical )    flip( view, view, 0 );
 
@@ -541,11 +545,20 @@ int main(int argc, char* argv[])
             }
 
             if( mode == CAPTURING &&  // For camera only take new samples after delay time
-                (!s.inputCapture.isOpened() || clock() - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) )
+                (!s.inputCapture.isOpened() || nowClock - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) )
             {
                 imagePoints.push_back(pointBuf);
-                prevTimestamp = clock();
+                prevTimestamp = nowClock;
                 blinkOutput = s.inputCapture.isOpened();
+
+                // write out the raw image (if setting is on)
+                if (s.bwriteRawImage)
+                {
+                    s.outputPrep(s.rawImageFileName);
+                    string path = s.rawImageFileName.string();
+                    replaceTokens(path, nowTime, imagePoints.size());
+                    imwrite(path, view);
+                }
             }
 
             // Draw the corners.

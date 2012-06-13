@@ -42,22 +42,21 @@ Settings:
 
    # If a non-empty string, all writen outputs will be placed in a directory
    # with the given name.
-   Write_outputDir: ""
+   Write_outputDir: "CamCalibration.%D.%T"
    # The name of the output log file.
    Write_outputFileName: "out_camera_data.yaml"
    # If true (non-zero) we write to the output file the feature points.
    Write_DetectedFeaturePoints: 1
    # If true (non-zero) we write to the output file the extrinsic camera parameters.
    Write_extrinsicParameters: 1
-   # If true (non-zero), when capturing (from a video file or a live camera),
-   # write out any raw images in which a calibration pattern is found
+   # If true (non-zero), when capturing, write out any raw images in which a
+   # calibration pattern is found
    Write_raw_calibration_images: 1
    # If Write_raw_calibration_images, gives the filename to output the images as
    # (if no %d is found, the number will be tacked on the end)
    Write_raw_image_fileName: "rawBoardImage_%04d.jpg"
-   # If true (non-zero), when capturing (from a video file or a live camera),
-   # write out the board-overlaid images in which a calibration pattern is
-   # found
+   # If true (non-zero), when capturing, write out the board-overlaid images in
+   # which a calibration pattern is found
    Write_overlay_calibration_images: 1
    # If Write_overlay_calibration_images, gives the filename to output the images
    # as (if no %d is found, the number will be tacked on the end)
