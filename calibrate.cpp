@@ -338,6 +338,15 @@ public:
         }
     }
 
+    void writeImage( const bfs::path& outputPath, const Mat& image,
+            struct tm time, int imageNum )
+    {
+        outputPrep(outputPath);
+        string path = outputPath.string();
+        replaceTokens(path, time, imageNum);
+        imwrite(path, image);
+    }
+
     void replacePathTokens(bfs::path& path, struct tm timeinfo, int counter=0)
     {
         if (not path.empty())
@@ -494,7 +503,8 @@ int main(int argc, char* argv[])
 
         vector<Point2f> pointBuf;
 
-        bool found;
+        bool found = false;
+        bool newCalibrationImage = false;
         switch( s.calibrationPattern ) // Find feature points on the input format
         {
         case Settings::CHESSBOARD:
@@ -547,6 +557,7 @@ int main(int argc, char* argv[])
             if( mode == CAPTURING &&  // For camera only take new samples after delay time
                 (!s.inputCapture.isOpened() || nowClock - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) )
             {
+                newCalibrationImage = true;
                 imagePoints.push_back(pointBuf);
                 prevTimestamp = nowClock;
                 blinkOutput = s.inputCapture.isOpened();
@@ -554,10 +565,8 @@ int main(int argc, char* argv[])
                 // write out the raw image (if setting is on)
                 if (s.bwriteRawImage)
                 {
-                    s.outputPrep(s.rawImageFileName);
-                    string path = s.rawImageFileName.string();
-                    replaceTokens(path, nowTime, imagePoints.size());
-                    imwrite(path, view);
+                    s.writeImage(s.rawImageFileName, view, nowTime,
+                            imagePoints.size());
                 }
             }
 
@@ -589,6 +598,15 @@ int main(int argc, char* argv[])
 
         putText( viewColor, msg, textOrigin, 1, 1, mode == CALIBRATED ?  GREEN : RED);
 
+
+        //------------------------------ write overlay image ---------------------------------------
+        if (newCalibrationImage && s.bwriteOverlayImage)
+        {
+            s.writeImage(s.overlayImageFileName, viewColor, nowTime,
+                    imagePoints.size());
+        }
+
+        //------------------------------ blink -----------------------------------------------------
         if( blinkOutput )
             bitwise_not(viewColor, viewColor);
 
