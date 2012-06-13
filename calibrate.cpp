@@ -434,7 +434,10 @@ namespace cv
     }
 } // namespace cv
 
-enum { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
+enum CalibrationMode { CALIBRATED = 0, MANUAL_CAPTURE = 1, AUTO_CAPTURE = 2 };
+
+enum ExitCodes { SUCCESS = 0, BAD_CONFIG = 1, BAD_INPUT = 2,
+    CALIBRATION_FAILED = 3  };
 
 bool runCalibrationAndSave(Settings& s, Size imageSize, Mat&  cameraMatrix, Mat& distCoeffs,
                            vector<vector<Point2f> > imagePoints );
@@ -450,7 +453,7 @@ int main(int argc, char* argv[])
     if (!fs.isOpened())
     {
         cout << "Could not open the configuration file: \"" << inputSettingsFile << "\"" << endl;
-        return -1;
+        return BAD_CONFIG;
     }
 
 #if OPENCV_2_4
@@ -463,42 +466,64 @@ int main(int argc, char* argv[])
     if (!s.goodInput)
     {
         cout << "Invalid input detected. Application stopping. " << endl;
-        return -1;
+        return BAD_INPUT;
     }
 
     vector<vector<Point2f> > imagePoints;
     Mat cameraMatrix, distCoeffs;
     Size imageSize;
-    int mode = s.inputType == Settings::IMAGE_LIST ? CAPTURING : DETECTION;
+    CalibrationMode mode = s.inputType == Settings::IMAGE_LIST ? AUTO_CAPTURE : MANUAL_CAPTURE;
     clock_t prevTimestamp = 0;
     clock_t nowClock;
     struct tm nowTime;
     vector<string> rawImagePaths;
+    bool captureRequested = false;
+    bool calibrationSucceeded = false;
 
     const Scalar RED(0,0,255), GREEN(0,255,0);
     const char ESC_KEY = 27;
 
     for(int i = 0;;++i)
     {
+        bool doCalibration = false;
         Mat view;
-        bool blinkOutput = false;
-
         view = s.nextImage();
 
         //-----  If no more image, or got enough, then stop calibration and show result -------------
-        if( mode == CAPTURING && imagePoints.size() >= (unsigned)s.nrFrames )
+        if( (imagePoints.size() >= (unsigned)s.nrFrames &&
+                ( mode == MANUAL_CAPTURE || mode == AUTO_CAPTURE ) )
+            || view.empty())
         {
-            if( runCalibrationAndSave(s, imageSize,  cameraMatrix, distCoeffs, imagePoints))
-              mode = CALIBRATED;
+            doCalibration = true;
+        }
+
+        if (doCalibration && imagePoints.size() > 0)
+        {
+            calibrationSucceeded = runCalibrationAndSave(s, imageSize,  cameraMatrix, distCoeffs, imagePoints);
+            if(calibrationSucceeded)
+            {
+                if (s.inputCapture.isOpened())
+                {
+                    mode = CALIBRATED;
+                }
+                else break;
+            }
             else
-              mode = DETECTION;
+            {
+                if (not s.inputCapture.isOpened())
+                {
+                    cout << "calibration failed when processing image list" << endl;
+                    return CALIBRATION_FAILED;
+                }
+                else
+                {
+                    mode = MANUAL_CAPTURE;
+                    imagePoints.clear();
+                }
+            }
         }
-        if(view.empty())          // If no more images then run calibration, save and stop loop.
-        {
-            if( imagePoints.size() > 0 )
-                runCalibrationAndSave(s, imageSize,  cameraMatrix, distCoeffs, imagePoints);
-            break;
-        }
+
+        bool blinkOutput = false;
 
         nowClock = clock();
         nowTime = currentTime();
@@ -559,9 +584,15 @@ int main(int argc, char* argv[])
                     Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
             }
 
-            if( mode == CAPTURING &&  // For camera only take new samples after delay time
-                (!s.inputCapture.isOpened() || nowClock - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) )
+            if( // capture if we're in auto capture, or manual capture and we
+                // pressed the button...
+                (mode == AUTO_CAPTURE || (mode == MANUAL_CAPTURE && captureRequested )
+                // ...AND we're processing an image list, or the delay time has
+                // passed
+                && (!s.inputCapture.isOpened()
+                     || nowClock - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) ))
             {
+                captureRequested = false;
                 newCalibrationImage = true;
                 imagePoints.push_back(pointBuf);
                 prevTimestamp = nowClock;
@@ -591,22 +622,33 @@ int main(int argc, char* argv[])
         }
 
         //----------------------------- Output Text ------------------------------------------------
-        string msg = (mode == CAPTURING) ? "100/100" :
-                      mode == CALIBRATED ? "Calibrated" : "Press 'g' to start";
+        string msg;
+
+        if (mode == CALIBRATED)
+        {
+            msg = "Calibrated";
+        }
+        else
+        {
+            string progress;
+            if(s.showUndistorsed)
+                progress = format( "%d/%d Undist", (int)imagePoints.size(), s.nrFrames );
+            else
+                progress = format( "%d/%d", (int)imagePoints.size(), s.nrFrames );
+            if( mode == AUTO_CAPTURE )
+            {
+                msg = progress;
+            }
+            else
+            {
+                //msg = format("Press 'g' to start auto-capture, or t to manually take a picture - ");
+                msg = "g to auto-capture, or t to manually take - " + progress;
+            }
+        }
         int baseLine = 0;
         Size textSize = getTextSize(msg, 1, 1, 1, &baseLine);
-        Point textOrigin(viewColor.cols - 2*textSize.width - 10, viewColor.rows - 2*baseLine - 10);
-
-        if( mode == CAPTURING )
-        {
-            if(s.showUndistorsed)
-                msg = format( "%d/%d Undist", (int)imagePoints.size(), s.nrFrames );
-            else
-                msg = format( "%d/%d", (int)imagePoints.size(), s.nrFrames );
-        }
-
+        Point textOrigin(viewColor.cols - textSize.width - 10, viewColor.rows - 2*baseLine - 10);
         putText( viewColor, msg, textOrigin, 1, 1, mode == CALIBRATED ?  GREEN : RED);
-
 
         //------------------------------ write overlay image ---------------------------------------
         if (newCalibrationImage && s.bwriteOverlayImage)
@@ -625,18 +667,27 @@ int main(int argc, char* argv[])
 
         if( key  == ESC_KEY )
             break;
-
-        if( key == 'u' && mode == CALIBRATED )
+        else if( key == 'u' && mode == CALIBRATED )
            s.showUndistorsed = !s.showUndistorsed;
+        else if( key == 'g' )
+            if ( mode == AUTO_CAPTURE )
+            {
+                mode = MANUAL_CAPTURE;
+            }
+            else
+            {
+                mode = AUTO_CAPTURE;
+                if (mode == CALIBRATED)
+                {
+                    imagePoints.clear();
+                }
+            }
 
-        if( s.inputCapture.isOpened() && key == 'g' )
-        {
-            mode = CAPTURING;
-            imagePoints.clear();
-        }
+        else if ( key == 't')
+            captureRequested = true;
     }
 
-    if (not rawImagePaths.empty())
+    if (calibrationSucceeded and not rawImagePaths.empty())
     {
         s.outputPrep(s.imageListFileName);
         FileStorage fs( s.imageListFileName.string(), FileStorage::WRITE );
