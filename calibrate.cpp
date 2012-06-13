@@ -242,7 +242,7 @@ public:
         }
         if (inputType == INVALID)
         {
-            cerr << " Inexistent input: " << input;
+            cerr << " Inexistent input: " << input << endl;
             goodInput = false;
         }
 
