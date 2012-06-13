@@ -859,7 +859,7 @@ void saveCameraParams( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& dis
     if( !reprojErrs.empty() )
         fs << "Per_View_Reprojection_Errors" << Mat(reprojErrs);
 
-    if( !rvecs.empty() && !tvecs.empty() )
+    if( !rvecs.empty() && !tvecs.empty() && s.bwriteExtrinsics )
     {
         CV_Assert(rvecs[0].type() == tvecs[0].type());
         Mat bigmat((int)rvecs.size(), 6, rvecs[0].type());
@@ -896,7 +896,7 @@ void saveCameraParams( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& dis
         fs << "Extrinsic_Parameters" << bigmat;
     }
 
-    if( !imagePoints.empty() )
+    if( !imagePoints.empty() && s.bwritePoints )
     {
         Mat imagePtMat((int)imagePoints.size(), imagePoints[0].size(), CV_32FC2);
         for( int i = 0; i < (int)imagePoints.size(); i++ )
