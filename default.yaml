@@ -54,7 +54,7 @@ Settings:
    Write_raw_calibration_images: 1
    # If Write_raw_calibration_images, gives the filename to output the images as
    # (if no %d is found, the number will be tacked on the end)
-   Write_raw_image_fileName: "rawBoardImage_%04d.jpg"
+   Write_raw_image_fileName: "rawBoardImage_%04d.png"
    # If true (non-zero), when capturing, write out the board-overlaid images in
    # which a calibration pattern is found
    Write_overlay_calibration_images: 1

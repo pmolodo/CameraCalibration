@@ -287,6 +287,7 @@ public:
         makeOutputPath(rawImageFileName);
         makeOutputPath(overlayImageFileName);
         makeOutputPath(imageListFileName);
+        replacePathTokens(imageListFileName);
     }
 
     Mat nextImage()
@@ -338,13 +339,14 @@ public:
         }
     }
 
-    void writeImage( const bfs::path& outputPath, const Mat& image,
+    string writeImage( const bfs::path& outputPath, const Mat& image,
             struct tm time, int imageNum )
     {
         outputPrep(outputPath);
         string path = outputPath.string();
         replaceTokens(path, time, imageNum);
         imwrite(path, image);
+        return path;
     }
 
     void replacePathTokens(bfs::path& path, struct tm timeinfo, int counter=0)
@@ -471,6 +473,8 @@ int main(int argc, char* argv[])
     clock_t prevTimestamp = 0;
     clock_t nowClock;
     struct tm nowTime;
+    vector<string> rawImagePaths;
+
     const Scalar RED(0,0,255), GREEN(0,255,0);
     const char ESC_KEY = 27;
 
@@ -505,6 +509,7 @@ int main(int argc, char* argv[])
 
         bool found = false;
         bool newCalibrationImage = false;
+
         switch( s.calibrationPattern ) // Find feature points on the input format
         {
         case Settings::CHESSBOARD:
@@ -565,8 +570,12 @@ int main(int argc, char* argv[])
                 // write out the raw image (if setting is on)
                 if (s.bwriteRawImage)
                 {
-                    s.writeImage(s.rawImageFileName, view, nowTime,
-                            imagePoints.size());
+                    string rawPath = s.writeImage(s.rawImageFileName, view,
+                            nowTime, imagePoints.size());
+                    if (s.bwriteImageList)
+                    {
+                        rawImagePaths.push_back(rawPath);
+                    }
                 }
             }
 
@@ -625,6 +634,22 @@ int main(int argc, char* argv[])
             mode = CAPTURING;
             imagePoints.clear();
         }
+    }
+
+    if (not rawImagePaths.empty())
+    {
+        s.outputPrep(s.imageListFileName);
+        FileStorage fs( s.imageListFileName.string(), FileStorage::WRITE );
+        fs << "Images" << "[";
+        {
+            for(vector<string>::iterator it = rawImagePaths.begin();
+                    it < rawImagePaths.end(); ++it)
+            {
+                fs << *it;
+            }
+        }
+        fs << "]";
+        fs.release();
     }
 
     // -----------------------Show the undistorted image for the image list ------------------------
