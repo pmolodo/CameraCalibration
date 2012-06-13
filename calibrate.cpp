@@ -528,28 +528,28 @@ int main(int argc, char* argv[])
 
         if ( found)                // If done with success,
         {
-              // improve the found corners' coordinate accuracy for chessboard
-                if( s.calibrationPattern == Settings::CHESSBOARD)
+            // improve the found corners' coordinate accuracy for chessboard
+            if( s.calibrationPattern == Settings::CHESSBOARD)
+            {
+                // now we want a gray image!
+                if (viewGray.empty())
                 {
-                    // now we want a gray image!
-                    if (viewGray.empty())
-                    {
-                        cvtColor(view, viewGray, CV_BGR2GRAY);
-                    }
-                    cornerSubPix( viewGray, pointBuf, Size(11,11),
-                        Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
+                    cvtColor(view, viewGray, CV_BGR2GRAY);
                 }
+                cornerSubPix( viewGray, pointBuf, Size(11,11),
+                    Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
+            }
 
-                if( mode == CAPTURING &&  // For camera only take new samples after delay time
-                    (!s.inputCapture.isOpened() || clock() - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) )
-                {
-                    imagePoints.push_back(pointBuf);
-                    prevTimestamp = clock();
-                    blinkOutput = s.inputCapture.isOpened();
-                }
+            if( mode == CAPTURING &&  // For camera only take new samples after delay time
+                (!s.inputCapture.isOpened() || clock() - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) )
+            {
+                imagePoints.push_back(pointBuf);
+                prevTimestamp = clock();
+                blinkOutput = s.inputCapture.isOpened();
+            }
 
-                // Draw the corners.
-                drawChessboardCorners( viewColor, s.boardSize, Mat(pointBuf), found );
+            // Draw the corners.
+            drawChessboardCorners( viewColor, s.boardSize, Mat(pointBuf), found );
         }
 
         //------------------------- Video capture  output  undistorted ------------------------------
