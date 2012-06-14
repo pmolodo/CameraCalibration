@@ -164,6 +164,7 @@ public:
 
                   << "Write_outputDir" << outputDir.string()
                   << "Write_outputFileName" << outputFileName.string()
+                  << "Write_rtslam" << bwriteRtslam
                   << "Write_DetectedFeaturePoints" << bwritePoints
                   << "Write_extrinsicParameters" << bwriteExtrinsics
                   << "Write_raw_calibration_images" << bwriteRawImage
@@ -196,6 +197,7 @@ public:
 
         node["Write_outputDir"] >> outputDir;
         node["Write_outputFileName"] >> outputFileName;
+        node["Write_rtslam"] >> bwriteRtslam;
         node["Write_DetectedFeaturePoints"] >> bwritePoints;
         node["Write_extrinsicParameters"] >> bwriteExtrinsics;
         node["Write_raw_calibration_images"] >> bwriteRawImage;
@@ -379,6 +381,7 @@ public:
 
     bfs::path outputDir;               // directory all other output images are placed under
     bfs::path outputFileName;          // The name of the file where to write
+    bool bwriteRtslam;              // write distortion info in rt-slam format
     bool bwritePoints;              //  Write detected feature points
     bool bwriteExtrinsics;          // Write extrinsic parameters
     bool bwriteRawImage;            // Write raw captured calibration images
@@ -858,6 +861,61 @@ void saveCameraParams( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& dis
     fs << "Avg_Reprojection_Error" << totalAvgErr;
     if( !reprojErrs.empty() )
         fs << "Per_View_Reprojection_Errors" << Mat(reprojErrs);
+
+    if( s.bwriteRtslam )
+    {
+        // | focalX   0    centerX |
+        // |    0   focalY centerY |
+        // |    0     0        1   |
+
+        CV_Assert(cameraMatrix.at<double>( 0, 1 ) == 0);
+        CV_Assert(cameraMatrix.at<double>( 1, 0 ) == 0);
+        CV_Assert(cameraMatrix.at<double>( 2, 0 ) == 0);
+        CV_Assert(cameraMatrix.at<double>( 2, 1 ) == 0);
+        CV_Assert(cameraMatrix.at<double>( 2, 2 ) == 1);
+
+        vector<float> rtSlamDistortion(3);
+        rtSlamDistortion[0] = distCoeffs.at<double>(0);
+        rtSlamDistortion[1] = distCoeffs.at<double>(1);
+        rtSlamDistortion[2] = distCoeffs.at<double>(2);
+        vector<float> rtSlamIntrinsics(4);
+        rtSlamIntrinsics[0] = cameraMatrix.at<double>( 0, 2 );  // centerX
+        rtSlamIntrinsics[1] = cameraMatrix.at<double>( 1, 2 );  // centerY
+        rtSlamIntrinsics[2] = cameraMatrix.at<double>( 0, 0 );  // focalX
+        rtSlamIntrinsics[3] = cameraMatrix.at<double>( 1, 1 );  // focalY
+        cout << format("rt-slam distortion values: (%f, %f, %f)",
+                rtSlamDistortion[0], rtSlamDistortion[1], rtSlamDistortion[2]) << endl;
+        cout << format("rt-slam intrinsics values (centerX, centerY, focalX, focalY): (%f, %f, %f, %f)",
+                       rtSlamIntrinsics[0], rtSlamIntrinsics[1],
+                       rtSlamIntrinsics[2], rtSlamIntrinsics[3]) << endl;
+
+        cvWriteComment(*fs, "calibration parameters formatted for use with rtslam", 0);
+        fs << "rtslam" << "{";
+        {
+            cvWriteComment(*fs, "(centerX, centerY, focalX, focalY)", 0);
+            fs << "INTRINSIC" << "[";
+            {
+                for (vector<float>::iterator it = rtSlamIntrinsics.begin();
+                        it < rtSlamIntrinsics.end(); ++it)
+                {
+                    fs << *it;
+                }
+            }
+            fs << "]";
+
+            fs << "DISTORTION" << "[";
+            {
+                for (vector<float>::iterator it = rtSlamDistortion.begin();
+                        it < rtSlamDistortion.end(); ++it)
+                {
+                    fs << *it;
+                }
+
+            }
+            fs << "]";
+        }
+        fs << "}";
+    }
 
     if( !rvecs.empty() && !tvecs.empty() && s.bwriteExtrinsics )
     {

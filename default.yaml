@@ -47,6 +47,9 @@ Settings:
    Write_outputDir: "CamCalibration.%D.%T"
    # The name of the output log file.
    Write_outputFileName: "out_camera_data.yaml"
+   # If true (non-zero) we write to the output file the calibration info in
+   # rtslam-friendly format
+   Write_rtslam: 1
    # If true (non-zero) we write to the output file the feature points.
    Write_DetectedFeaturePoints: 1
    # If true (non-zero) we write to the output file the extrinsic camera parameters.
