@@ -850,7 +850,6 @@ void saveCameraParams( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& dis
             s.flag & CV_CALIB_FIX_PRINCIPAL_POINT ? " +fix_principal_point" : "",
             s.flag & CV_CALIB_ZERO_TANGENT_DIST ? " +zero_tangent_dist" : "" );
         cvWriteComment( *fs, buf, 0 );
-
     }
 
     fs << "flagValue" << s.flag;
@@ -860,7 +859,10 @@ void saveCameraParams( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& dis
 
     fs << "Avg_Reprojection_Error" << totalAvgErr;
     if( !reprojErrs.empty() )
+    {
+        fs << "Max_Reprojection_Error" << *max_element(reprojErrs.begin(), reprojErrs.end());
         fs << "Per_View_Reprojection_Errors" << Mat(reprojErrs);
+    }
 
     if( s.bwriteRtslam )
     {
@@ -976,7 +978,7 @@ bool runCalibrationAndSave(Settings& s, Size imageSize, Mat&  cameraMatrix, Mat&
     bool ok = runCalibration(s,imageSize, cameraMatrix, distCoeffs, imagePoints, rvecs, tvecs,
                              reprojErrs, totalAvgErr);
     cout << (ok ? "Calibration succeeded" : "Calibration failed")
-        << ". avg re projection error = "  << totalAvgErr ;
+        << ". avg re projection error = "  << totalAvgErr << endl;
 
     if( ok )
         saveCameraParams( s, imageSize, cameraMatrix, distCoeffs, rvecs ,tvecs, reprojErrs,
