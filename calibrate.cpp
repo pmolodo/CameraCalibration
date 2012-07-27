@@ -879,7 +879,14 @@ void saveCameraParams( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& dis
         vector<float> rtSlamDistortion(3);
         rtSlamDistortion[0] = distCoeffs.at<double>(0);
         rtSlamDistortion[1] = distCoeffs.at<double>(1);
-        rtSlamDistortion[2] = distCoeffs.at<double>(2);
+        if (distCoeffs.total() > 4)
+        {
+            rtSlamDistortion[2] = distCoeffs.at<double>(4);
+        }
+        else
+        {
+            rtSlamDistortion[2] = 0.0;
+        }
         vector<float> rtSlamIntrinsics(4);
         rtSlamIntrinsics[0] = cameraMatrix.at<double>( 0, 2 );  // centerX
         rtSlamIntrinsics[1] = cameraMatrix.at<double>( 1, 2 );  // centerY
